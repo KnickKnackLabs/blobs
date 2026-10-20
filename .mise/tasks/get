@@ -10,10 +10,8 @@ source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 KEY="$usage_key"
 DEST="${usage_dest:-}"
 
-if [ -z "$DEST" ]; then
-  # Output to stdout
-  mc cat "${BLOB_TARGET}/${KEY}"
-else
-  mc cp -q "${BLOB_TARGET}/${KEY}" "$DEST"
+blob_get "$KEY" "$DEST"
+
+if [ -n "$DEST" ]; then
   echo "Downloaded: ${KEY} -> ${DEST}" >&2
 fi

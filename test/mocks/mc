@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s\n' "$*" >> "$S3_TEST_DIR/requests.log"
+command="$1"
+shift
+
+if [[ "$command" == "alias" ]]; then
+  if [[ "$1" == "list" ]]; then
+    cat "$S3_TEST_DIR/alias"
+  fi
+  exit 0
+fi
+
+if [[ -f "$S3_TEST_DIR/request-fails" ]]; then
+  echo "mc: simulated request failure" >&2
+  exit 1
+fi
+
+case "$command" in
+  cat)
+    cat "$S3_TEST_DIR/responses/download"
+    ;;
+  cp)
+    [[ "$1" != "-q" ]] || shift
+    source="$1"
+    destination="$2"
+    if [[ "$source" == test/test-bucket/* ]]; then
+      cp "$S3_TEST_DIR/responses/download" "$destination"
+    else
+      cp "$source" "$S3_TEST_DIR/upload"
+    fi
+    ;;
+  pipe)
+    cat > "$S3_TEST_DIR/upload"
+    ;;
+  ls)
+    format=txt
+    listing=list
+    while [[ "$1" == --* ]]; do
+      case "$1" in
+        --json) format=jsonl ;;
+        --recursive) listing=list-recursive ;;
+        *) echo "Unexpected mc listing flag: $1" >&2; exit 1 ;;
+      esac
+      shift
+    done
+
+    directory="${1#test/test-bucket}"
+    directory="${directory%/}"
+    cat "$S3_TEST_DIR/responses$directory/$listing.$format"
+    ;;
+  rm) ;;
+  *) echo "Unexpected mc command: $command" >&2; exit 1 ;;
+esac

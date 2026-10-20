@@ -1,81 +1,116 @@
 # blobs
 
-**Object storage put/get/list/delete.** Thin wrapper over [`mc`](https://min.io/docs/minio/linux/reference/minio-mc.html) for S3-compatible buckets (Backblaze B2 is the reference backend).
+**Put, get, list, and delete files in S3-compatible storage or FileBrowser Quantum.**
+Choose a backend with `BLOB_BACKEND=s3` or `BLOB_BACKEND=qfb`. It is required;
+blobs never chooses a storage account for you.
 
+```sh
+blobs put sessions/note.md ./note.md
+blobs get sessions/note.md                 # stdout
+blobs get sessions/note.md ./download.md   # local file
+blobs list sessions/
+blobs list --recursive --json sessions/
+blobs delete sessions/note.md
 ```
-blobs put <key> <file>       Upload
-blobs get <key> [dest]       Download (default: stdout)
-blobs list [-r] [prefix]     List objects (--recursive/-r for all depths)
-blobs delete <key>           Remove an object
-blobs welcome                Status overview
-blobs setup                  Configure the mc alias (one-time)
-```
+
+`put` creates or replaces a file. Omit the local filename, or use `-`, to read
+from stdin. Paths are relative to the configured bucket or QFB user's source root.
 
 ## Install
 
-```bash
+```sh
 shiv install blobs
 ```
 
-## Configure
+## FileBrowser Quantum
 
-blobs is driven entirely by environment variables — it has no config file and no identity concept. The user provides the alias name, bucket, and B2 credentials.
+Provide the server URL, source name, and an existing API token through your
+environment:
 
-| Variable             | Required by        | Purpose                                                        |
-| -------------------- | ------------------ | -------------------------------------------------------------- |
-| `B2_ALIAS`           | setup + ops        | Name blobs/mc will use for this configuration (your choice)    |
-| `B2_BUCKET`          | ops                | Bucket name                                                    |
-| `B2_ENDPOINT`        | setup              | B2 S3-compatible endpoint URL                                  |
-| `B2_KEY_ID`          | setup              | B2 application key ID                                          |
-| `B2_APPLICATION_KEY` | setup              | B2 application key secret                                      |
+```sh
+export BLOB_BACKEND=qfb
+export QFB_URL=https://files.example.test
+export QFB_SOURCE=Shared
+# Set QFB_TOKEN through your normal secret-loading mechanism.
 
-One-time setup:
-
-```bash
-export B2_ALIAS=myalias
-export B2_ENDPOINT=https://s3.us-east-005.backblazeb2.com
-export B2_KEY_ID=...
-export B2_APPLICATION_KEY=...
-blobs setup
+blobs welcome
+blobs list
+blobs get 'Clients/Example/Sessions/2026-10-06/note.md'
 ```
 
-Then, for daily use:
+The URL is the FileBrowser base URL, without `/api`. A base path is supported,
+for example `https://files.example.test/filebrowser`. The source name must match
+one available to the token's user. QFB enforces that user's scope and permissions.
+Keep the token out of committed configuration files.
 
-```bash
-export B2_ALIAS=myalias
+QFB needs no one-time local setup. `setup` checks configuration; `welcome` shows
+it without reading files or printing the token. Neither verifies server access.
+
+For QFB, `list` takes a **directory**, not a partial filename prefix. Plain output
+contains root-relative paths, with `/` after folders. `--recursive` walks folders
+and lists files only. `--json` emits one record per line:
+
+```json
+{"key":"sessions/note.md","type":"file"}
+{"key":"sessions/next","type":"folder"}
+```
+
+`delete` rejects directories. It reads the resource's metadata before deleting
+an individual file.
+
+## S3-compatible storage
+
+The S3 backend uses `mc`, with Backblaze B2 as the reference service. Existing
+`B2_*` variable names are retained.
+
+```sh
+export BLOB_BACKEND=s3
+export B2_ALIAS=work
 export B2_BUCKET=my-bucket
+export B2_ENDPOINT=https://s3.us-east-005.backblazeb2.com
+# Set B2_KEY_ID and B2_APPLICATION_KEY through your secret-loading mechanism.
+blobs setup
+
 blobs put notes/hello.txt ./hello.txt
 blobs list notes/
-blobs get notes/hello.txt
-blobs delete notes/hello.txt
 ```
 
-## Multiple accounts / buckets
+`setup` stores an `mc` alias in `~/.mc/config.json` and leaves an existing alias
+unchanged. Daily operations need only `BLOB_BACKEND`, `B2_ALIAS`, and `B2_BUCKET`.
+Use different aliases and buckets for different accounts.
 
-blobs doesn't manage profiles — the environment does. For a second account, use different values:
+S3 listing retains `mc`'s output and key-prefix matching, including its richer
+JSON records. The JSON fields are not identical across backends; both include
+`key` and `type`.
 
-```bash
-# Work account
-B2_ALIAS=work B2_BUCKET=work-logs blobs list
+## Code layout
 
-# Personal account
-B2_ALIAS=personal B2_BUCKET=backups blobs list
+Public tasks parse arguments and call `blob_get`, `blob_put`, `blob_list`, etc.
+`.mise/tasks/_env` sources exactly one implementation:
+
+```text
+.mise/lib/backends/
+├── s3.sh     # mc operations and alias setup
+└── qfb.sh    # curl requests and directory traversal
 ```
-
-Each unique `B2_ALIAS` maps to its own `mc` alias configuration, set up once via `blobs setup`.
-
-## How it works
-
-Internally, blobs calls `mc` (the MinIO Client), which stores aliases in `~/.mc/config.json`. Users of blobs don't interact with `mc` directly — it's an implementation detail. `blobs setup` is the one-time shim that calls `mc alias set`; every other command operates via `$B2_ALIAS/$B2_BUCKET/$KEY` targets.
 
 ## Development
 
-```bash
-mise install      # installs mc, bats, jq, etc.
-mise run test     # runs the BATS suite
+```sh
+mise trust
+mise install
+mise run test                 # all checks
+mise run test put             # put contract against both backends
+mise run test qfb             # QFB-specific checks
+mise run test --filter stdin
 ```
 
-Tests shadow `mc` on `$PATH` with a recording mock — no real B2 traffic is needed to run the suite.
+`test/commands/` checks shared CLI behavior against both S3 and QFB.
+`test/backends/` checks backend configuration and the arguments sent to `mc`
+and `curl`. Both suites invoke the public Mise tasks with recording doubles;
+they use fictional fixtures under `test/fixtures/` and never access storage.
+Each backend has its own setup and scratch directory. `MC` and `CURL` override
+the executables for testing.
 
 ## License
 

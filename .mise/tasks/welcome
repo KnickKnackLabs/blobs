@@ -1,74 +1,8 @@
 #!/usr/bin/env bash
-#MISE description="Blob storage status overview"
+#MISE description="Show the selected storage configuration"
 
-set -e
+set -euo pipefail
 
-echo ""
-echo "Blob Storage"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "Persistent object storage backed by Backblaze B2 (via mc)."
-echo ""
+source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 
-if [ -z "${B2_ALIAS:-}" ]; then
-  echo "  B2_ALIAS: not set"
-  echo ""
-  echo "  Set B2_ALIAS, then run: blobs setup"
-  echo ""
-  exit 0
-fi
-
-echo "  Alias:    $B2_ALIAS"
-
-# Check if configured
-if ! mc alias list "$B2_ALIAS" 2>/dev/null | grep -q "$B2_ALIAS"; then
-  echo "  Status:   not configured"
-  echo ""
-  echo "  Run: blobs setup"
-  echo ""
-  exit 0
-fi
-
-# Bucket from env
-if [ -z "${B2_BUCKET:-}" ]; then
-  echo "  Bucket:   not set"
-  echo ""
-  echo "  Set the B2_BUCKET env var to enable object operations."
-  echo ""
-  exit 0
-fi
-
-echo "  Bucket:   $B2_BUCKET"
-
-# Show object count and total size
-STATS=$(mc ls --recursive --json "${B2_ALIAS}/${B2_BUCKET}" 2>/dev/null | jq -s '{count: length, size: (map(.size // 0) | add)}' 2>/dev/null) || STATS=""
-if [ -n "$STATS" ]; then
-  OBJ_COUNT=$(echo "$STATS" | jq -r '.count')
-  TOTAL_SIZE=$(echo "$STATS" | jq -r '.size // 0')
-  # Human-readable size (pure bash integer math)
-  if [ "$TOTAL_SIZE" -ge 1073741824 ] 2>/dev/null; then
-    SIZE_HR="$(( TOTAL_SIZE / 1073741824 )) GB"
-  elif [ "$TOTAL_SIZE" -ge 1048576 ] 2>/dev/null; then
-    SIZE_HR="$(( TOTAL_SIZE / 1048576 )) MB"
-  elif [ "$TOTAL_SIZE" -ge 1024 ] 2>/dev/null; then
-    SIZE_HR="$(( TOTAL_SIZE / 1024 )) KB"
-  else
-    SIZE_HR="${TOTAL_SIZE} bytes"
-  fi
-  echo "  Objects:  $OBJ_COUNT ($SIZE_HR)"
-else
-  echo "  Objects:  (could not fetch)"
-fi
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Quick reference:"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "  blobs put <key> <file>       Upload a file"
-echo "  blobs get <key> [dest]       Download (default: stdout)"
-echo "  blobs list [prefix]          List objects"
-echo "  blobs delete <key>           Remove an object"
-echo ""
-echo "  More: blobs tasks"
-echo ""
+blob_welcome

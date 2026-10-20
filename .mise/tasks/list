@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="List blobs in storage"
-#USAGE arg "[prefix]" default="" help="Key prefix to filter (e.g., sessions/)"
+#USAGE arg "[prefix]" default="" help="S3 key prefix or QFB directory (e.g., sessions/)"
 #USAGE flag "--json" default=#false help="Output as JSON"
 #USAGE flag "-r --recursive" default=#false help="List all objects under prefix recursively"
 
@@ -8,13 +8,4 @@ set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 
-PREFIX="${usage_prefix:-}"
-
-TARGET="${BLOB_TARGET}"
-[ -n "$PREFIX" ] && TARGET="${TARGET}/${PREFIX}"
-
-MC_FLAGS=()
-[ "${usage_json:-false}"      = "true" ] && MC_FLAGS+=(--json)
-[ "${usage_recursive:-false}" = "true" ] && MC_FLAGS+=(--recursive)
-
-mc ls "${MC_FLAGS[@]}" "$TARGET"
+blob_list "${usage_prefix:-}" "${usage_json:-false}" "${usage_recursive:-false}"

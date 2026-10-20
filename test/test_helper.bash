@@ -1,62 +1,69 @@
-# Shared BATS helpers for blobs tests.
-#
-# Strategy: shadow `mc` on $PATH with a mock that logs invocations to a file.
-# Each test can inspect the log to verify expected arg shapes.
-#
-# Required env going into tests (setup_blobs_env sets these):
-#   B2_ALIAS=test
-#   B2_BUCKET=test-bucket
-#   PATH="$BATS_TEST_TMPDIR/bin:$PATH"   (for mc mock)
+BLOBS_TEST_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BLOBS_REPO_DIR="$(cd "$BLOBS_TEST_ROOT/.." && pwd)"
+export BLOBS_REPO_DIR
 
-if [ -z "${MISE_CONFIG_ROOT:-}" ]; then
-  echo "MISE_CONFIG_ROOT not set — run tests via: mise run test" >&2
-  exit 1
-fi
-
-# Call blobs tasks through mise.
 blobs() {
-  (cd "$MISE_CONFIG_ROOT" && mise run -q "$@")
+  (cd "$BLOBS_REPO_DIR" && mise run -q "$@")
 }
 export -f blobs
 
-# Set up an isolated test environment:
-#   - BATS_TEST_TMPDIR/bin/mc      mock mc recording invocations
-#   - BATS_TEST_TMPDIR/mc.log      log of `mc` calls (one line per call)
-#   - BATS_TEST_TMPDIR/mc.alias    fake alias-list content (populated by default)
-#   - env: B2_ALIAS, B2_BUCKET, PATH
-setup_blobs_env() {
-  export B2_ALIAS="test"
-  export B2_BUCKET="test-bucket"
+setup_s3_env() {
+  export BLOB_BACKEND=s3
+  export B2_ALIAS=test
+  export B2_BUCKET=test-bucket
+  export B2_ENDPOINT=https://s3.example.test
+  export B2_KEY_ID=fictional-key-id
+  export B2_APPLICATION_KEY=fictional-application-key
 
-  mkdir -p "$BATS_TEST_TMPDIR/bin"
-  MC_LOG="$BATS_TEST_TMPDIR/mc.log"
-  MC_ALIAS_LIST="$BATS_TEST_TMPDIR/mc.alias"
-  export MC_LOG MC_ALIAS_LIST
-
-  # By default, the alias exists (so _env passes verification).
-  echo "test" > "$MC_ALIAS_LIST"
-
-  cat > "$BATS_TEST_TMPDIR/bin/mc" <<'MCEOF'
-#!/usr/bin/env bash
-# Mock mc — logs args, emits canned output for alias list.
-printf '%s\n' "$*" >> "$MC_LOG"
-case "$1 $2" in
-  "alias list") cat "$MC_ALIAS_LIST" 2>/dev/null || true ;;
-  *) : ;;
-esac
-exit 0
-MCEOF
-  chmod +x "$BATS_TEST_TMPDIR/bin/mc"
-
-  PATH="$BATS_TEST_TMPDIR/bin:$PATH"
-  export PATH
+  export MC="$BLOBS_TEST_ROOT/mocks/mc"
+  export CURL="$BLOBS_TEST_ROOT/mocks/curl"
+  export S3_TEST_DIR="$BATS_TEST_TMPDIR/s3"
+  mkdir -p "$S3_TEST_DIR"
+  printf 'test\n' > "$S3_TEST_DIR/alias"
+  cp -R "$BLOBS_TEST_ROOT/fixtures/s3/responses" "$S3_TEST_DIR/responses"
 }
 
-# Make the alias appear not-configured (for tests that assert the guard fires).
-clear_mc_alias() { : > "$MC_ALIAS_LIST"; }
+setup_qfb_env() {
+  export BLOB_BACKEND=qfb
+  export QFB_URL="https://files.example.test"
+  export QFB_SOURCE="Shared files"
+  export QFB_TOKEN="fictional-test-token"
 
-# Read the last mc invocation from the log.
-last_mc_call() { tail -n 1 "$MC_LOG" 2>/dev/null; }
+  export CURL="$BLOBS_TEST_ROOT/mocks/curl"
+  export MC="$BLOBS_TEST_ROOT/mocks/mc"
+  export QFB_TEST_DIR="$BATS_TEST_TMPDIR/qfb"
+  mkdir -p "$QFB_TEST_DIR"
+  cp -R "$BLOBS_TEST_ROOT/fixtures/qfb/responses" "$QFB_TEST_DIR/responses"
+}
 
-# Read all mc invocations.
-all_mc_calls() { cat "$MC_LOG" 2>/dev/null; }
+# Shared command suites read storage_dir after setup returns.
+# shellcheck disable=SC2034
+setup_command_env() {
+  case "${BLOBS_TEST_BACKEND:?Run shared command tests through mise run test}" in
+    s3)
+      setup_s3_env
+      storage_dir="$S3_TEST_DIR"
+      ;;
+    qfb)
+      setup_qfb_env
+      storage_dir="$QFB_TEST_DIR"
+      ;;
+    *) echo "Unknown test backend: $BLOBS_TEST_BACKEND" >&2; return 1 ;;
+  esac
+}
+
+clear_mc_alias() {
+  : > "$S3_TEST_DIR/alias"
+}
+
+last_mc_call() {
+  tail -n 1 "$S3_TEST_DIR/requests.log"
+}
+
+all_mc_calls() {
+  cat "$S3_TEST_DIR/requests.log"
+}
+
+last_curl_call() {
+  tail -n 1 "$QFB_TEST_DIR/requests.jsonl"
+}

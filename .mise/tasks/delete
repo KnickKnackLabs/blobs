@@ -8,5 +8,5 @@ source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 
 KEY="$usage_key"
 
-mc rm "${BLOB_TARGET}/${KEY}"
+blob_delete "$KEY"
 echo "Deleted: ${KEY}" >&2

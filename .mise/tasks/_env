@@ -1,42 +1,20 @@
 #!/usr/bin/env bash
-#MISE description="Shared blob storage environment setup"
+#MISE description="Load the selected storage backend"
 #MISE hide=true
-# Source this file from blob tasks to resolve target + verify prerequisites.
-#
-# Usage:
-#   source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
-#
-# Required environment:
-#   B2_ALIAS    — mc alias name (user picks; passed to `mc alias set` at setup time)
-#   B2_BUCKET   — bucket name
-#
-# After sourcing, these variables are set:
-#   BLOB_TARGET — full mc target prefix (alias/bucket)
 
-if [ -z "${B2_ALIAS:-}" ]; then
-  echo "ERROR: B2_ALIAS is not set" >&2
-  echo "       Set the B2_ALIAS env var (the mc alias name this blobs config should use)." >&2
-  exit 1
-fi
-
-if [ -z "${B2_BUCKET:-}" ]; then
-  echo "ERROR: B2_BUCKET is not set" >&2
-  echo "       Set the B2_BUCKET env var (bucket name)." >&2
-  exit 1
-fi
-
-BLOB_TARGET="${B2_ALIAS}/${B2_BUCKET}"
-
-# Verify mc is available
-if ! command -v mc &>/dev/null; then
-  echo "ERROR: mc (MinIO client) not found." >&2
-  echo "       Install with: mise install (mc is managed by mise)" >&2
-  exit 1
-fi
-
-# Verify alias is configured
-if ! mc alias list "$B2_ALIAS" 2>/dev/null | grep -q "$B2_ALIAS"; then
-  echo "ERROR: mc alias '$B2_ALIAS' not configured." >&2
-  echo "       Run: blobs setup" >&2
-  exit 1
-fi
+case "${BLOB_BACKEND:-}" in
+  s3)
+    source "$MISE_CONFIG_ROOT/.mise/lib/backends/s3.sh"
+    ;;
+  qfb)
+    source "$MISE_CONFIG_ROOT/.mise/lib/backends/qfb.sh"
+    ;;
+  "")
+    echo "ERROR: BLOB_BACKEND is required (s3 or qfb)" >&2
+    exit 1
+    ;;
+  *)
+    echo "ERROR: BLOB_BACKEND must be s3 or qfb" >&2
+    exit 1
+    ;;
+esac

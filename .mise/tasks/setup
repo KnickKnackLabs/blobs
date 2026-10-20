@@ -1,59 +1,8 @@
 #!/usr/bin/env bash
-#MISE description="Configure the mc alias from B2 credentials in env (one-time local setup)"
-#
-# Required environment:
-#   B2_ALIAS             — mc alias name to create
-#   B2_ENDPOINT          — B2 S3-compatible endpoint URL
-#   B2_KEY_ID            — B2 application key ID
-#   B2_APPLICATION_KEY   — B2 application key secret
+#MISE description="Set up the selected storage backend"
 
-set -e
+set -euo pipefail
 
-# Check if mc is available
-if ! command -v mc &>/dev/null; then
-  echo "ERROR: mc (MinIO client) not found." >&2
-  echo "       Install with: mise install (mc is managed by mise)" >&2
-  exit 1
-fi
+source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 
-# Validate required env vars — fail clean if any are missing.
-missing=()
-[ -z "${B2_ALIAS:-}" ]           && missing+=("B2_ALIAS")
-[ -z "${B2_ENDPOINT:-}" ]        && missing+=("B2_ENDPOINT")
-[ -z "${B2_KEY_ID:-}" ]          && missing+=("B2_KEY_ID")
-[ -z "${B2_APPLICATION_KEY:-}" ] && missing+=("B2_APPLICATION_KEY")
-
-if [ ${#missing[@]} -gt 0 ]; then
-  echo "ERROR: Missing required env var(s): ${missing[*]}" >&2
-  echo "" >&2
-  echo "Set the following before running 'blobs setup':" >&2
-  echo "  B2_ALIAS             (mc alias name to create)" >&2
-  echo "  B2_ENDPOINT          (B2 S3-compatible endpoint URL)" >&2
-  echo "  B2_KEY_ID            (B2 application key ID)" >&2
-  echo "  B2_APPLICATION_KEY   (B2 application key secret)" >&2
-  exit 1
-fi
-
-# If the alias already exists, don't stomp on it without explicit intent.
-if mc alias list "$B2_ALIAS" 2>/dev/null | grep -q "$B2_ALIAS"; then
-  echo "mc alias '$B2_ALIAS' is already configured."
-  echo ""
-  echo "To reconfigure:"
-  echo "  mc alias remove $B2_ALIAS"
-  echo "  blobs setup"
-  exit 0
-fi
-
-# Ensure endpoint has a scheme (mc requires it)
-endpoint="$B2_ENDPOINT"
-[[ "$endpoint" =~ ^https?:// ]] || endpoint="https://$endpoint"
-
-echo "Configuring mc alias '$B2_ALIAS'..."
-mc alias set "$B2_ALIAS" "$endpoint" "$B2_KEY_ID" "$B2_APPLICATION_KEY" --api s3v4
-
-echo ""
-echo "Blob storage configured."
-echo "  Alias:    $B2_ALIAS"
-echo "  Endpoint: $endpoint"
-echo ""
-echo "Test with: blobs welcome"
+blob_setup

@@ -1,28 +1,44 @@
 #!/usr/bin/env bash
-#MISE description="Run BATS tests"
-#USAGE arg "[args]..." var=#true help="Test suites or bats arguments"
+#MISE description="Run shared command contracts and backend-specific BATS tests"
+#USAGE arg "[args]" var=#true help="Optional suite name, followed by BATS arguments"
 #USAGE example "mise run test" header="Run all tests"
-#USAGE example "mise run test put" header="Run a specific suite by name"
-#USAGE example "mise run test -- --filter uploads" header="Filter tests by name"
+#USAGE example "mise run test put" header="Check put with both backends"
+#USAGE example "mise run test qfb" header="Check QFB-specific behavior"
+#USAGE example "mise run test --filter stdin" header="Filter tests by name"
 set -euo pipefail
 
 TEST_DIR="$MISE_CONFIG_ROOT/test"
-
-args=()
-has_target=false
-
-for arg in "$@"; do
-  if [[ "$arg" != -* && "$arg" != *.bats && -f "$TEST_DIR/$arg.bats" ]]; then
-    args+=("$TEST_DIR/$arg.bats")
-    has_target=true
-  else
-    [[ "$arg" == *.bats || -d "$arg" ]] && has_target=true
-    args+=("$arg")
-  fi
-done
-
-if ! $has_target; then
-  args+=("$TEST_DIR/")
+suite=all
+if [[ $# -gt 0 && "$1" != -* ]]; then
+  suite="$1"
+  shift
 fi
 
-bats "${args[@]}"
+command_suite=""
+backend_suite=""
+case "$suite" in
+  all)
+    command_suite="$TEST_DIR/commands"
+    backend_suite="$TEST_DIR/backends"
+    ;;
+  commands) command_suite="$TEST_DIR/commands" ;;
+  backends) backend_suite="$TEST_DIR/backends" ;;
+  get|put|list|delete|env) command_suite="$TEST_DIR/commands/$suite.bats" ;;
+  s3|qfb) backend_suite="$TEST_DIR/backends/$suite.bats" ;;
+  *)
+    echo "Unknown suite: $suite (use all, commands, backends, get, put, list, delete, env, s3, or qfb)" >&2
+    exit 1
+    ;;
+esac
+
+if [[ -n "$command_suite" ]]; then
+  for backend in s3 qfb; do
+    printf '\nCommand contracts: %s\n' "$backend"
+    BLOBS_TEST_BACKEND="$backend" bats "$@" "$command_suite"
+  done
+fi
+
+if [[ -n "$backend_suite" ]]; then
+  printf '\nBackend-specific checks\n'
+  bats "$@" "$backend_suite"
+fi
