@@ -15,6 +15,9 @@ setup_state() {
 setup_mocks() {
   export MC="${BLOBS_TEST_ROOT}/mocks/mc"
   export CURL="${BLOBS_TEST_ROOT}/mocks/curl"
+
+  export BLOBS_TEST_ETAG="fictional-etag"
+  export BLOBS_TEST_EXISTS="true"
 }
 
 setup_s3_env() {

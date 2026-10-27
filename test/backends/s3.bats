@@ -9,90 +9,96 @@ setup() {
 @test "s3: get to stdout uses mc cat with the full target" {
   run blobs get sessions/note.md
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "cat test/test-bucket/sessions/note.md" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "cat test/test-bucket/sessions/note.md" ]]
 }
 
 @test "s3: get to a file uses quiet mc cp" {
-  destination="$BATS_TEST_TMPDIR/note.md"
+  destination="${BATS_TEST_TMPDIR}/note.md"
 
-  run blobs get sessions/note.md "$destination"
+  run blobs get sessions/note.md "${destination}"
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "cp -q test/test-bucket/sessions/note.md $destination" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "cp -q test/test-bucket/sessions/note.md ${destination}" ]]
 }
 
 @test "s3: put a file uses quiet mc cp" {
-  source="$BATS_TEST_TMPDIR/note.md"
-  printf 'hello\n' > "$source"
+  source="${BATS_TEST_TMPDIR}/note.md"
+  printf 'hello\n' > "${source}"
 
-  run blobs put sessions/note.md "$source"
+  # shellcheck disable=SC2030,SC2031
+  export BLOBS_TEST_EXISTS="false"
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "cp -q $source test/test-bucket/sessions/note.md" ]
+  run blobs put sessions/note.md "${source}"
+
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "cp -q ${source} test/test-bucket/sessions/note.md" ]]
 }
 
 @test "s3: put from stdin uses quiet mc pipe" {
+  # shellcheck disable=SC2030,SC2031
+  export BLOBS_TEST_EXISTS="false"
+
   run bash -c 'printf "streamed" | blobs put sessions/note.md'
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "pipe -q test/test-bucket/sessions/note.md" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "pipe -q test/test-bucket/sessions/note.md" ]]
 }
 
 @test "s3: list without a prefix targets the bucket root" {
   run blobs list
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "ls test/test-bucket" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "ls test/test-bucket" ]]
 }
 
 @test "s3: list appends a prefix to the target" {
   run blobs list sessions/
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "ls test/test-bucket/sessions/" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "ls test/test-bucket/sessions/" ]]
 }
 
 @test "s3: list forwards the JSON flag" {
   run blobs list --json
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "ls --json test/test-bucket" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "ls --json test/test-bucket" ]]
 }
 
 @test "s3: list forwards the recursive flag" {
   run blobs list --recursive
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "ls --recursive test/test-bucket" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "ls --recursive test/test-bucket" ]]
 }
 
 @test "s3: list translates the short recursive flag" {
   run blobs list -r
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "ls --recursive test/test-bucket" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "ls --recursive test/test-bucket" ]]
 }
 
 @test "s3: list combines a prefix and the recursive flag" {
   run blobs list --recursive sessions/
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "ls --recursive test/test-bucket/sessions/" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "ls --recursive test/test-bucket/sessions/" ]]
 }
 
 @test "s3: list combines JSON, recursion, and a prefix" {
   run blobs list --json --recursive sessions/
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "ls --json --recursive test/test-bucket/sessions/" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "ls --json --recursive test/test-bucket/sessions/" ]]
 }
 
 @test "s3: delete uses mc rm with the full target" {
   run blobs delete sessions/old.md
 
-  [ "$status" -eq 0 ]
-  [ "$(last_mc_call)" = "rm test/test-bucket/sessions/old.md" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "$(last_mc_call)" == "rm test/test-bucket/sessions/old.md" ]]
 }
 
 @test "s3: operations require B2_ALIAS" {
@@ -100,8 +106,8 @@ setup() {
 
   run blobs list
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"B2_ALIAS is not set"* ]]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"B2_ALIAS is not set"* ]]
 }
 
 @test "s3: operations require B2_BUCKET" {
@@ -109,8 +115,8 @@ setup() {
 
   run blobs list
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"B2_BUCKET is not set"* ]]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"B2_BUCKET is not set"* ]]
 }
 
 @test "s3: operations require a configured mc alias" {
@@ -118,9 +124,9 @@ setup() {
 
   run blobs list
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"mc alias 'test' not configured"* ]]
-  [[ "$output" == *"blobs setup"* ]]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"mc alias 'test' not configured"* ]]
+  [[ "${output}" == *"blobs setup"* ]]
 }
 
 @test "s3: setup creates an alias using the supplied credentials" {
@@ -128,9 +134,9 @@ setup() {
 
   run blobs setup
 
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Blob storage configured"* ]]
-  [ "$(last_mc_call)" = "alias set test https://s3.example.test fictional-key-id fictional-application-key --api s3v4" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "${output}" == *"Blob storage configured"* ]]
+  [[ "$(last_mc_call)" == "alias set test https://s3.example.test fictional-key-id fictional-application-key --api s3v4" ]]
 }
 
 @test "s3: setup adds https when the endpoint has no scheme" {
@@ -139,7 +145,7 @@ setup() {
 
   run blobs setup
 
-  [ "$status" -eq 0 ]
+  [[ "${status}" -eq 0 ]]
   [[ "$(last_mc_call)" == *"https://s3.example.test"* ]]
 }
 
@@ -148,8 +154,8 @@ setup() {
 
   run blobs setup
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"B2_ALIAS"* ]]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"B2_ALIAS"* ]]
 }
 
 @test "s3: setup requires B2_ENDPOINT" {
@@ -157,8 +163,8 @@ setup() {
 
   run blobs setup
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"B2_ENDPOINT"* ]]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"B2_ENDPOINT"* ]]
 }
 
 @test "s3: setup requires B2_KEY_ID" {
@@ -166,8 +172,8 @@ setup() {
 
   run blobs setup
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"B2_KEY_ID"* ]]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"B2_KEY_ID"* ]]
 }
 
 @test "s3: setup requires B2_APPLICATION_KEY" {
@@ -175,8 +181,8 @@ setup() {
 
   run blobs setup
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"B2_APPLICATION_KEY"* ]]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"B2_APPLICATION_KEY"* ]]
 }
 
 @test "s3: setup reports missing credentials together" {
@@ -184,16 +190,16 @@ setup() {
 
   run blobs setup
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"B2_ENDPOINT"* ]]
-  [[ "$output" == *"B2_KEY_ID"* ]]
-  [[ "$output" == *"B2_APPLICATION_KEY"* ]]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"B2_ENDPOINT"* ]]
+  [[ "${output}" == *"B2_KEY_ID"* ]]
+  [[ "${output}" == *"B2_APPLICATION_KEY"* ]]
 }
 
 @test "s3: setup leaves an existing alias unchanged" {
   run blobs setup
 
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"already configured"* ]]
-  [ "$(all_mc_calls)" = "alias list test" ]
+  [[ "${status}" -eq 0 ]]
+  [[ "${output}" == *"already configured"* ]]
+  [[ "$(all_mc_calls)" == "alias list test" ]]
 }

@@ -36,8 +36,17 @@ fi
 
 case "${command}" in
   stat)
-    printf '%s\n' \
-      '{"etag":"fictional-etag","versionID":"fictional-version"}'
+    if [[ "${BLOBS_TEST_EXISTS}" == "false" ]]; then
+      jq -cn '{
+        status: "error",
+        error: { cause: { message: "Object does not exist" }}
+      }'
+      exit 1
+    fi
+
+    jq -cn \
+      --arg etag "${BLOBS_TEST_ETAG}" \
+      '{ etag: $etag, versionID: "fictional-version" }'
     ;;
 
   cat)

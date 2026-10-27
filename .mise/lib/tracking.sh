@@ -88,3 +88,23 @@ tracking_save() {
 
   printf '%s\n' "${updated}" | tracking_write
 }
+
+tracking_check() {
+  local source="${1}" key="${2}" file="${3}" etag="${4}"
+  local record
+
+  if ! record=$(tracking_find "${source}" "${key}" "${file}"); then
+    printf 'ERROR: Could not look up records for %s.\n' "${key}" >&2
+    return 1
+  fi
+
+  if [[ -z "${record}" ]]; then
+    printf 'ERROR: No record of %s. Use --force to overwrite.\n' "${key}" >&2
+    return 1
+  fi
+
+  if ! printf '%s\n' "${record}" | jq -e --arg etag "${etag}" '.etag == $etag' >/dev/null; then
+    printf 'ERROR: Remote %s has changed. Use --force to overwrite.\n' "${key}" >&2
+    return 1
+  fi
+}

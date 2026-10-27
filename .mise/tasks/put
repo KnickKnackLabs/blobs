@@ -2,13 +2,16 @@
 #MISE description="Upload a blob to storage"
 #USAGE arg "<key>" help="Storage path (e.g., sessions/2024-01-15/note.md)"
 #USAGE arg "[file]" help="Local file to upload (use - for stdin, omit for stdin)"
+#USAGE flag "-f --force" default=#false help="Force overwrite of upstream blob."
 
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
+source "$MISE_CONFIG_ROOT/.mise/lib/tracking.sh"
 
 KEY="$usage_key"
 FILE="${usage_file:--}"
+FORCE="${usage_force:-false}"
 
 if [ "$FILE" != "-" ] && [ ! -f "$FILE" ]; then
   echo "ERROR: File not found: $FILE" >&2
@@ -16,6 +19,27 @@ if [ "$FILE" != "-" ] && [ ! -f "$FILE" ]; then
 fi
 
 blob_check_config
-blob_put "$KEY" "$FILE"
 
+LOCAL_FILE="${FILE}"
+if [[ "${FILE}" != "-" ]]; then
+  LOCAL_FILE=$(realpath "${FILE}")
+fi
+
+SOURCE=$(blob_source)
+METADATA=$(blob_stat "${KEY}")
+
+# false is valid here, so do not use jq -e
+EXISTS=$(printf '%s\n' "${METADATA}" | jq -r '.exists')
+
+if [[ "${EXISTS}" == "true" && "${FORCE}" != "true" ]]; then
+  ETAG=$(
+    printf '%s\n' "${METADATA}" \
+    | jq -er '.etag | strings | select(length > 0)'
+  )
+
+  tracking_check \
+    "${SOURCE}" "${KEY}" "${LOCAL_FILE}" "${ETAG}"
+fi
+
+blob_put "$KEY" "$FILE"
 echo "Uploaded: ${KEY}" >&2

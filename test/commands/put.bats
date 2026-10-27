@@ -10,6 +10,9 @@ setup() {
   source="${BATS_TEST_TMPDIR}/source document.pdf"
   printf 'example\000binary\n' > "${source}"
 
+   # shellcheck disable=SC2030,SC2031
+  export BLOBS_TEST_EXISTS="false"
+
   run blobs put sessions/document.pdf "${source}"
 
   [[ "${status}" -eq 0 ]]
@@ -18,27 +21,37 @@ setup() {
 }
 
 @test "put: reads stdin when the filename is omitted" {
-  run bash -c 'printf "from stdin" | blobs put sessions/note.md'
+  # shellcheck disable=SC2030,SC2031
+  export BLOBS_TEST_EXISTS="false"
+
+  run bash -c '
+    printf "from stdin" | blobs put sessions/note.md
+  '
 
   [[ "${status}" -eq 0 ]]
-  [ "$(cat "${storage_dir}/upload")" = "from stdin" ]
+  [[ "$(cat "${storage_dir}/upload")" == "from stdin" ]]
 }
 
 @test "put: reads stdin when the filename is dash" {
-  run bash -c 'printf "from stdin" | blobs put sessions/note.md -'
+  # shellcheck disable=SC2030,SC2031
+  export BLOBS_TEST_EXISTS="false"
+
+  run bash -c '
+    printf "from stdin" | blobs put sessions/note.md -
+  '
 
   [[ "${status}" -eq 0 ]]
-  [ "$(cat "${storage_dir}/upload")" = "from stdin" ]
+  [[ "$(cat "${storage_dir}/upload")" == "from stdin" ]]
 }
 
 @test "put: rejects a missing local file" {
   run blobs put sessions/note.md "${BATS_TEST_TMPDIR}/missing.md"
 
-  [ "${status}" -ne 0 ]
+  [[ "${status}" -ne 0 ]]
   [[ "${output}" == *"File not found"* ]]
-  [ ! -e "${storage_dir}/upload" ]
-  [ ! -e "${storage_dir}/requests.log" ]
-  [ ! -e "${storage_dir}/requests.jsonl" ]
+  [[ ! -e "${storage_dir}/upload" ]]
+  [[ ! -e "${storage_dir}/requests.log" ]]
+  [[ ! -e "${storage_dir}/requests.jsonl" ]]
 }
 
 @test "put: a failed upload returns nonzero without reporting success" {
@@ -46,7 +59,53 @@ setup() {
 
   run blobs put sessions/note.md "${storage_dir}/responses/download"
 
-  [ "${status}" -ne 0 ]
+  [[ "${status}" -ne 0 ]]
   [[ "${output}" == *"simulated request failure"* ]]
   [[ "${output}" != *"Uploaded:"* ]]
+}
+
+@test "put: refuses an existing remote file without a local record of it" {
+  file="${BATS_TEST_TMPDIR}/note.md"
+  printf 'local content\n' > "${file}"
+
+  run blobs put sessions/note.md "${file}"
+
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"No record"* ]]
+  [[ ! -e "${storage_dir}/upload" ]]
+}
+
+@test "put: accepts a matching record after local edits" {
+  file="${BATS_TEST_TMPDIR}/note.md"
+
+  blobs get sessions/note.md "${file}"
+  printf 'edited locally\n' > "${file}"
+
+  run blobs put sessions/note.md "${file}"
+
+  [[ "${status}" -eq 0 ]]
+  cmp "${file}" "${storage_dir}/upload"
+}
+
+@test "put: force permits an overwrite without a record" {
+  file="${BATS_TEST_TMPDIR}/note.md"
+  printf 'deliberate replacement\n' > "${file}"
+
+  run blobs put --force sessions/note.md "${file}"
+
+  [[ "${status}" -eq 0 ]]
+  cmp "${file}" "${storage_dir}/upload"
+}
+
+@test "put: refuses when the remote changes after download" {
+  file="${BATS_TEST_TMPDIR}/note.md"
+
+  blobs get sessions/note.md "${file}"
+  export BLOBS_TEST_ETAG="changed-etag"
+
+  run blobs put sessions/note.md "${file}"
+
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"has changed"* ]]
+  [[ ! -e "${storage_dir}/upload" ]]
 }
