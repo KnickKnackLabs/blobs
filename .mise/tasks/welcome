@@ -5,4 +5,5 @@ set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 
+blob_check_config
 blob_welcome

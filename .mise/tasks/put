@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
+
 KEY="$usage_key"
 FILE="${usage_file:--}"
 
@@ -13,8 +15,7 @@ if [ "$FILE" != "-" ] && [ ! -f "$FILE" ]; then
   exit 1
 fi
 
-source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
-
+blob_check_config
 blob_put "$KEY" "$FILE"
 
 echo "Uploaded: ${KEY}" >&2

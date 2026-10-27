@@ -12,6 +12,8 @@ source "${MISE_CONFIG_ROOT}/.mise/lib/tracking.sh"
 KEY="${usage_key}"
 DEST="${usage_dest:-}"
 
+blob_check_config
+
 if [[ -z "${DEST}" ]]; then
   blob_get "${KEY}" ""
   exit

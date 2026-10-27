@@ -3,6 +3,6 @@
 
 set -euo pipefail
 
-source "$MISE_CONFIG_ROOT/.mise/tasks/_env" setup
+source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 
 blob_setup

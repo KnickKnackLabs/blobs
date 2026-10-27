@@ -6,19 +6,18 @@ case "${BLOB_BACKEND:-}" in
   s3)
     source "$MISE_CONFIG_ROOT/.mise/lib/backends/s3.sh"
     ;;
+
   qfb)
     source "$MISE_CONFIG_ROOT/.mise/lib/backends/qfb.sh"
     ;;
+
   "")
     echo "ERROR: BLOB_BACKEND is required (s3 or qfb)" >&2
     exit 1
     ;;
+
   *)
     echo "ERROR: BLOB_BACKEND must be s3 or qfb" >&2
     exit 1
     ;;
 esac
-
-if [[ "${1:-}" != "setup" ]]; then
-  blob_check_config
-fi
