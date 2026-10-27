@@ -109,3 +109,18 @@ setup() {
   [[ "${output}" == *"has changed"* ]]
   [[ ! -e "${storage_dir}/upload" ]]
 }
+
+@test "put: refreshes its record for a later upload" {
+  file="${BATS_TEST_TMPDIR}/note.md"
+
+  blobs get sessions/note.md "${file}"
+
+  printf 'first local edit\n' > "${file}"
+  blobs put sessions/note.md "${file}"
+
+  printf 'second local edit\n' > "${file}"
+  run blobs put sessions/note.md "${file}"
+
+  [[ "${status}" -eq 0 ]]
+  cmp "${file}" "${storage_dir}/upload"
+}

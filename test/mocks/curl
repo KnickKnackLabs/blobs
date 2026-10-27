@@ -77,6 +77,11 @@ case "${method} ${url##*/api/}" in
     ;;
 
   "HEAD resources/download")
+    if [[ -f "${QFB_TEST_DIR}/upload" ]]; then
+      printf '%s' '200:"uploaded-etag"'
+      exit 0
+    fi
+
     if [[ "${BLOBS_TEST_EXISTS}" == "false" ]]; then
       printf '%s' '404:'
       exit 0

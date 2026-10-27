@@ -30,7 +30,11 @@ setup() {
 
   [[ "${status}" -eq 0 ]]
 
-  request=$(last_curl_call)
+  request=$(
+    jq -c '
+      select(.[index("--request") + 1] == "POST")
+    ' "${QFB_TEST_DIR}/requests.jsonl"
+  )
   [[ "${request}" == *'"POST"'* ]]
   [[ "${request}" == *'"https://files.example.test/api/resources"'* ]]
   [[ "${request}" == *'"override=true"'* ]]

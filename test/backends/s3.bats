@@ -32,7 +32,9 @@ setup() {
   run blobs put sessions/note.md "${source}"
 
   [[ "${status}" -eq 0 ]]
-  [[ "$(last_mc_call)" == "cp -q ${source} test/test-bucket/sessions/note.md" ]]
+  grep -Fxq -- \
+    "cp -q ${source} test/test-bucket/sessions/note.md" \
+    "${S3_TEST_DIR}/requests.log"
 }
 
 @test "s3: put from stdin uses quiet mc pipe" {

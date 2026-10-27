@@ -43,3 +43,21 @@ fi
 
 blob_put "$KEY" "$FILE"
 echo "Uploaded: ${KEY}" >&2
+
+if [[ "${FILE}" != "-" ]]; then
+  if ! METADATA=$(blob_stat "${KEY}"); then
+    printf '%s\n' 'ERROR: upload completed, but metadata lookup failed. Record unchanged.' >&2
+    exit 1
+  fi
+
+  if ! ETAG=$(
+    printf '%s\n' "${METADATA}" \
+    | jq -er '.etag | strings | select(length > 0)'
+  ); then
+    printf '%s\n' 'ERROR: uploaded completed, but no usable ETag was returned. Record unchanged.' >&2
+    exit 1
+  fi
+
+  tracking_save \
+    "${SOURCE}" "${KEY}" "${LOCAL_FILE}" "${ETAG}"
+fi

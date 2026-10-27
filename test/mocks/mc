@@ -36,6 +36,14 @@ fi
 
 case "${command}" in
   stat)
+    if [[ -f "${S3_TEST_DIR}/upload" ]]; then
+      jq -cn '{
+        etag: "uploaded-etag",
+        versionID: "uploaded-version"
+      }'
+      exit 0
+    fi
+
     if [[ "${BLOBS_TEST_EXISTS}" == "false" ]]; then
       jq -cn '{
         status: "error",
