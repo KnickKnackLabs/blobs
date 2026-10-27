@@ -77,7 +77,7 @@ case "${method} ${url##*/api/}" in
     ;;
 
   "HEAD resources/download")
-    printf '%s' '"fictional-etag"'
+    printf '%s' '200:"fictional-etag"'
     exit 0
     ;;
 

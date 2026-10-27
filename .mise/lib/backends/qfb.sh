@@ -37,23 +37,41 @@ qfb_request() {
 
 blob_stat() {
   local key="${1}"
-  local etag
+  local response status etag
 
-  etag=$(
+  response=$(
     qfb_request HEAD resources/download \
       --url-query "file=/${key#/}" \
+      --no-fail \
       --output /dev/null \
-      --write-out '%header{etag}'
+      --write-out '%{http_code}:%header{etag}'
   ) || return
 
-  if [[ -z "${etag}" ]]; then
-    printf 'ERROR: QFB returned no ETag.\n' >&2
-    return 1
-  fi
+  status="${response%%:*}"
+  etag="${response#*:}"
 
-  # apply a bunch of validation nonsense
-  jq -cn \
-    --arg etag "${etag}" '{ etag: $etag }'
+  case "${status}" in
+    200)
+      if [[ -z "${etag}" ]]; then
+        printf 'ERROR: no ETag received.\n' >&2
+        return 1
+      fi
+
+      jq -cn \
+        --arg etag "${etag}" \
+        '{ exists: true, etag: $etag }'
+      ;;
+
+    404)
+      jq -cn \
+        '{ exists: false }'
+      ;;
+
+    *)
+      printf 'ERROR: request returned HTTP %s.\n' "${status}" >&2
+      return 1
+      ;;
+  esac
 }
 
 blob_source() {

@@ -33,9 +33,37 @@ blob_check_config() {
 
 blob_stat() {
   local key="$1"
+  local response
 
-  "${MC:-mc}" stat --json "$(remote "${key}")" \
-  | jq '{ etag, versionID }'
+  if response=$(
+    "${MC:-mc}" stat --no-list --json "$(remote "${key}")"
+  ); then
+    printf '%s\n' "${response}" \
+    | jq -ce '
+      select(.etag | strings | length > 0)
+        // error("S3 returned no ETag")
+      | { exists: true, etag, versionID }
+    '
+
+    return
+  fi
+
+  # mc discards the S3 error code;
+  # match only its exact missing-object message.
+  if printf '%s\n' "${response}" |
+    jq -e '
+      .status == "error" and
+      .error.cause.message == "Object does not exist"
+    ' >/dev/null; then
+
+    jq -cn \
+      '{ exists: false }'
+
+    return
+  fi
+
+  printf 'ERROR: Unable to read S3 metadata.\n' >&2
+  return 1
 }
 
 blob_source() {
