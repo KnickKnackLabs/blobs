@@ -8,6 +8,7 @@
 set -euo pipefail
 
 TEST_DIR="$MISE_CONFIG_ROOT/test"
+export MISE_GLOBAL_CONFIG_FILE="${TEST_DIR}/fixtures/mise/empty.toml"
 suite=all
 if [[ $# -gt 0 && "$1" != -* ]]; then
   suite="$1"

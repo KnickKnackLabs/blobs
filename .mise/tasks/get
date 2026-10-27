@@ -5,13 +5,32 @@
 
 set -euo pipefail
 
-source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
+source "${MISE_CONFIG_ROOT}/.mise/tasks/_env"
+source "${MISE_CONFIG_ROOT}/.mise/lib/tracking.sh"
 
-KEY="$usage_key"
+# shellcheck disable=SC2154
+KEY="${usage_key}"
 DEST="${usage_dest:-}"
 
-blob_get "$KEY" "$DEST"
-
-if [ -n "$DEST" ]; then
-  echo "Downloaded: ${KEY} -> ${DEST}" >&2
+if [[ -z "${DEST}" ]]; then
+  blob_get "${KEY}" ""
+  exit
 fi
+
+SOURCE=$(blob_source)
+
+# Capture the baseline before downloading so a later remote change
+# cannot be mistaken for the version we downloaded
+METADATA=$(blob_stat "${KEY}")
+
+ETAG=$(
+  printf '%s\n' "${METADATA}" \
+  | jq -er '.etag | strings | select(length > 0)'
+)
+
+blob_get "${KEY}" "${DEST}"
+
+FILE=$(realpath "${DEST}")
+tracking_save "${SOURCE}" "${KEY}" "${FILE}" "${ETAG}"
+
+echo "Downloaded: ${KEY} -> ${DEST}" >&2

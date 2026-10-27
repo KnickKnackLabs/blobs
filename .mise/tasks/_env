@@ -18,3 +18,7 @@ case "${BLOB_BACKEND:-}" in
     exit 1
     ;;
 esac
+
+if [[ "${1:-}" != "setup" ]]; then
+  blob_check_config
+fi

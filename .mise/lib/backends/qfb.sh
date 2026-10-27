@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-qfb_check_config() {
+blob_check_config() {
   : "${QFB_URL:?QFB_URL is not set}"
   : "${QFB_SOURCE:?QFB_SOURCE is not set}"
   : "${QFB_TOKEN:?QFB_TOKEN is not set}"
@@ -22,7 +22,10 @@ qfb_check_config() {
 qfb_request() {
   local method="$1" endpoint="$2"
   shift 2
-  qfb_check_config
+
+  if [[ "${method}" == "HEAD" ]]; then
+    set -- --head "$@"
+  fi
 
   "${CURL:-curl}" --silent --show-error --fail \
     --request "$method" \
@@ -30,6 +33,46 @@ qfb_request() {
     --url "${QFB_URL%/}/api/$endpoint" \
     --url-query "source=$QFB_SOURCE" \
     "$@"
+}
+
+blob_stat() {
+  local key="${1}"
+  local etag
+
+  etag=$(
+    qfb_request HEAD resources/download \
+      --url-query "file=/${key#/}" \
+      --output /dev/null \
+      --write-out '%header{etag}'
+  ) || return
+
+  if [[ -z "${etag}" ]]; then
+    printf 'ERROR: QFB returned no ETag.\n' >&2
+    return 1
+  fi
+
+  # apply a bunch of validation nonsense
+  jq -cn \
+    --arg etag "${etag}" '{ etag: $etag }'
+}
+
+blob_source() {
+  local token_hash
+
+  if ! token_hash=$(printf '%s' "${QFB_TOKEN}" | shasum -a 256); then
+    return 1
+  fi
+
+  jq -cn \
+    --arg url "${QFB_URL%/}" \
+    --arg source "${QFB_SOURCE}" \
+    --arg token_hash "${token_hash%% *}" \
+    '{
+      backend: "qfb",
+      url: $url,
+      source: $source,
+      token_hash: $token_hash
+    }'
 }
 
 blob_get() {
@@ -41,6 +84,7 @@ blob_get() {
 
 blob_put() {
   local key="$1" file="$2"
+
   qfb_request POST resources \
     --url-query "path=/${key#/}" \
     --url-query "override=true" \
@@ -52,7 +96,9 @@ blob_put() {
 qfb_list_directory() {
   local directory="$1" recursive="$2"
   local items file_entries folder_entries folder key
-  items=$(qfb_request GET resources/items --url-query "path=/$directory")
+  items=$(qfb_request \
+    GET resources/items --url-query "path=/$directory" \
+  )
 
   file_entries=$(printf '%s' "$items" | jq -c --arg prefix "$directory" '
     (.files // [])[] |
@@ -92,22 +138,31 @@ blob_list() {
 
 blob_delete() {
   local key="$1" info type
-  info=$(qfb_request GET resources --url-query "path=/${key#/}")
+
+  info=$(qfb_request \
+    GET resources \
+      --url-query "path=/${key#/}" \
+  )
+
   type=$(printf '%s' "$info" | jq -er '.type | strings')
   if [[ "$type" == "directory" ]]; then
     echo "ERROR: Refusing to delete a directory: $key" >&2
     return 1
   fi
 
-  qfb_request DELETE resources --url-query "path=/${key#/}" --output /dev/null
+  qfb_request \
+    DELETE resources --url-query "path=/${key#/}" \
+    --output /dev/null
 }
 
 blob_setup() {
-  qfb_check_config
+  blob_check_config
+
   echo "QFB configuration is set. No local setup is needed."
 }
 
 blob_welcome() {
-  qfb_check_config
-  printf 'Backend: qfb\nURL:     %s\nSource:  %s\n' "$QFB_URL" "$QFB_SOURCE"
+  printf 'Backend: qfb\nURL:     %s\nSource:  %s\n' \
+    "$QFB_URL" \
+    "$QFB_SOURCE"
 }
