@@ -8,5 +8,7 @@ source "$MISE_CONFIG_ROOT/.mise/tasks/_env"
 
 KEY="$usage_key"
 
+blob_check_config
 blob_delete "$KEY"
+
 echo "Deleted: ${KEY}" >&2

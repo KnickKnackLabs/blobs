@@ -16,6 +16,8 @@ blobs delete sessions/note.md
 `put` creates or replaces a file. Omit the local filename, or use `-`, to read
 from stdin. Paths are relative to the configured bucket or QFB user's source root.
 
+There's some half-assed remote overwrite protection, using etags from the provider. It warns if a changed remote file is detected, and requires `--force` to overwrite.
+
 ## Install
 
 ```sh

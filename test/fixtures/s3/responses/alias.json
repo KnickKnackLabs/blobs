@@ -1,0 +1,7 @@
+{
+  "status": "success",
+  "alias": "test",
+  "URL": "https://s3.example.test",
+  "accessKey": "fictional-key-id",
+  "secretKey": "fictional-application-key"
+}

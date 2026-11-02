@@ -11,10 +11,10 @@ setup() {
 
   run blobs list
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"BLOB_BACKEND is required"* ]]
-  [ ! -e "$storage_dir/requests.log" ]
-  [ ! -e "$storage_dir/requests.jsonl" ]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"BLOB_BACKEND is required"* ]]
+  [ ! -e "${storage_dir}/requests.log" ]
+  [ ! -e "${storage_dir}/requests.jsonl" ]
 }
 
 @test "env: rejects an unknown backend before contacting storage" {
@@ -22,8 +22,8 @@ setup() {
 
   run blobs list
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"BLOB_BACKEND must be s3 or qfb"* ]]
-  [ ! -e "$storage_dir/requests.log" ]
-  [ ! -e "$storage_dir/requests.jsonl" ]
+  [[ "${status}" -ne 0 ]]
+  [[ "${output}" == *"BLOB_BACKEND must be s3 or qfb"* ]]
+  [ ! -e "${storage_dir}/requests.log" ]
+  [ ! -e "${storage_dir}/requests.jsonl" ]
 }

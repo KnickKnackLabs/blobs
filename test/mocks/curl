@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-jq -cn --args '$ARGS.positional' -- "$@" >> "$QFB_TEST_DIR/requests.jsonl"
-if [[ -f "$QFB_TEST_DIR/request-fails" ]]; then
+jq -cn \
+  --args '$ARGS.positional' \
+  -- "$@" \
+>> "${QFB_TEST_DIR}/requests.jsonl"
+
+if [[ -f "${QFB_TEST_DIR}/request-fails" ]]; then
   echo "curl: simulated request failure" >&2
   exit 22
 fi
@@ -14,51 +18,87 @@ output="-"
 upload=""
 
 while [[ $# -gt 0 ]]; do
-  case "$1" in
+  case "${1}" in
     --request)
-      method="$2"
+      method="${2}"
       shift 2
       ;;
+
     --url)
-      url="$2"
+      url="${2}"
       shift 2
       ;;
+
     --url-query)
-      if [[ "$2" == path=* ]]; then
+      if [[ "${2}" == path=* ]]; then
         directory="${2#path=}"
       fi
+
       shift 2
       ;;
+
     --output)
-      output="$2"
+      output="${2}"
       shift 2
       ;;
+
     --data-binary)
       upload="${2#@}"
       shift 2
       ;;
+
     *)
       shift
       ;;
   esac
 done
 
-if [[ "$upload" == "-" ]]; then
-  cat > "$QFB_TEST_DIR/upload"
-elif [[ -n "$upload" ]]; then
-  cat "$upload" > "$QFB_TEST_DIR/upload"
+if [[ "${upload}" == "-" ]]; then
+  cat > "${QFB_TEST_DIR}/upload"
+elif [[ -n "${upload}" ]]; then
+  cat "${upload}" > "${QFB_TEST_DIR}/upload"
 fi
 
-case "$method ${url##*/api/}" in
-  "GET resources/items") response="$QFB_TEST_DIR/responses$directory/items.json" ;;
-  "GET resources/download") response="$QFB_TEST_DIR/responses/download" ;;
-  "GET resources") response="$QFB_TEST_DIR/responses/info.json" ;;
-  "POST resources"|"DELETE resources") exit 0 ;;
-  *) echo "Unexpected mock request: $method $url" >&2; exit 1 ;;
+case "${method} ${url##*/api/}" in
+  "GET resources/items")
+    response="${QFB_TEST_DIR}/responses${directory}/items.json"
+    ;;
+
+  "GET resources/download")
+    response="${QFB_TEST_DIR}/responses/download"
+    ;;
+
+  "GET resources")
+    response="${QFB_TEST_DIR}/responses/info.json"
+    ;;
+
+  "POST resources"|"DELETE resources")
+    exit 0
+    ;;
+
+  "HEAD resources/download")
+    if [[ -f "${QFB_TEST_DIR}/upload" ]]; then
+      printf '%s' '200:"uploaded-etag"'
+      exit 0
+    fi
+
+    if [[ "${BLOBS_TEST_EXISTS}" == "false" ]]; then
+      printf '%s' '404:'
+      exit 0
+    fi
+
+    printf '200:"%s"' "${BLOBS_TEST_ETAG}"
+    exit 0
+    ;;
+
+  *)
+    echo "Unexpected mock request: ${method} ${url}" >&2
+    exit 1
+    ;;
 esac
 
-if [[ "$output" == "-" ]]; then
-  cat "$response"
+if [[ "${output}" == "-" ]]; then
+  cat "${response}"
 else
-  cat "$response" > "$output"
+  cat "${response}" > "${output}"
 fi
